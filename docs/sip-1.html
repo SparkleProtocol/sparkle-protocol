@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIP-1: Metadata Schema - Sparkle Protocol</title>
+    <link rel="stylesheet" href="../css/academic-ultra-clean.css">
+    <link rel="stylesheet" href="../css/navigation-clean.css">
+</head>
+<body>
+    <a href="../index.html" class="back-button">← Back to Home</a>
+
+    <div class="container">
+        <h1>SIP-1: Sparkle Metadata Schema (v1)</h1>
+
+        <div class="warning-box">
+            <strong>STATUS: DRAFT</strong><br>
+            Type: Standard<br>
+            Created: 2025-10-02<br>
+            Author: David Michael
+        </div>
+
+        <h2>Abstract</h2>
+        <p>
+            This specification defines the JSON metadata schema for Sparkle Protocol inscriptions (version 1).
+            It establishes canonicalization rules, required/optional fields, and upgrade semantics to ensure
+            indexer consensus across implementations.
+        </p>
+
+        <h2>Motivation</h2>
+        <p>
+            Without a normative schema and canonicalization rules, different indexers will disagree on:
+        </p>
+        <ul>
+            <li>Field ordering and whitespace handling</li>
+            <li>Which inscriptions are valid Sparkle metadata</li>
+            <li>How to handle unknown fields or version mismatches</li>
+        </ul>
+        <p>
+            This SIP provides deterministic rules so all indexers reach the same state.
+        </p>
+
+        <h2>Specification</h2>
+
+        <h3>JSON Schema (v1)</h3>
+        <pre>{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sparkle Inscription Metadata v1",
+  "type": "object",
+  "required": ["p", "v"],
+  "properties": {
+    "p": {
+      "const": "sparkle",
+      "description": "Protocol identifier"
+    },
+    "v": {
+      "type": "integer",
+      "const": 1,
+      "description": "Protocol version"
+    },
+    "op": {
+      "enum": ["deploy", "config"],
+      "description": "Operation type"
+    },
+    "layers": {
+      "type": "array",
+      "description": "Recursive parent inscription IDs",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}i[0-9]+$",
+            "description": "Parent inscription ID"
+          },
+          "z": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Layer z-index (0 = bottom)"
+          }
+        }
+      }
+    },
+    "lightning": {
+      "type": "object",
+      "description": "Lightning Network configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable Lightning trades"
+        },
+        "network": {
+          "enum": ["mainnet", "testnet", "regtest"],
+          "description": "Bitcoin network"
+        },
+        "htlc_timeout": {
+          "type": "integer",
+          "minimum": 18,
+          "maximum": 1008,
+          "description": "HTLC timeout in blocks"
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "description": "Optional metadata",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "attributes": { "type": "array" }
+      }
+    }
+  },
+  "additionalProperties": false
+}</pre>
+
+        <h3>Canonicalization Rules</h3>
+        <ol>
+            <li><strong>Key Ordering:</strong> Alphabetical by key name</li>
+            <li><strong>Whitespace:</strong> No whitespace between tokens (compact JSON)</li>
+            <li><strong>Unicode:</strong> UTF-8 encoding, escaped control characters</li>
+            <li><strong>Numbers:</strong> No leading zeros, no trailing decimals</li>
+        </ol>
+
+        <h3>Example: Valid Sparkle v1 Inscription</h3>
+        <pre>{"layers":[{"id":"abc123...i0","z":0},{"id":"def456...i0","z":1}],"lightning":{"enabled":true,"network":"mainnet"},"meta":{"name":"NFT #1"},"op":"deploy","p":"sparkle","v":1}</pre>
+
+        <h3>Validation Rules</h3>
+        <ul>
+            <li>MUST reject inscriptions with unknown "v" values</li>
+            <li>MUST reject inscriptions with "p" ≠ "sparkle"</li>
+            <li>MUST validate against JSON Schema before indexing</li>
+            <li>MUST ignore inscriptions with additionalProperties</li>
+        </ul>
+
+        <h2>Backwards Compatibility</h2>
+        <p>
+            Version 1 is the initial specification. Future versions will be defined in separate SIPs
+            and MUST NOT break v1 indexer implementations.
+        </p>
+
+        <h2>Security Considerations</h2>
+        <ul>
+            <li>Indexers MUST limit inscription size to prevent DoS (suggested: 100KB max)</li>
+            <li>Indexers MUST validate inscription IDs before fetching parent content</li>
+            <li>Indexers SHOULD rate-limit recursive fetches</li>
+        </ul>
+
+        <h2>See Also</h2>
+        <ul>
+            <li><a href="sip-1-test-vectors.html">Test Vectors and Compliance Examples</a></li>
+            <li><a href="sip-2.html">SIP-2: Upgrade Semantics</a></li>
+            <li><a href="sip-3.html">SIP-3: Lightning-Atomic Trades</a></li>
+        </ul>
+
+        <footer style="margin-top: 4rem; padding: 2rem 0; border-top: 2px solid #000;">
+            <p><strong>SIP-1</strong> • Sparkle Metadata Schema v1</p>
+            <p>© 2025 Sparkle Protocol • Created by David Michael • Draft Specification</p>
+        </footer>
+    </div>
+</body>
+</html>

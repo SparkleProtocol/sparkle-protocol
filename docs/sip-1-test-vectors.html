@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIP-1 Test Vectors - Sparkle Protocol</title>
+    <link rel="stylesheet" href="../css/academic-ultra-clean.css">
+</head>
+<body>
+    <a href="sip-1.html" class="back-button">← Back to SIP-1</a>
+
+    <div class="container">
+        <h1>SIP-1 Test Vectors and Compliance Examples</h1>
+
+        <h2>Valid Inscriptions</h2>
+
+        <h3>Example 1: Minimal Valid Inscription</h3>
+        <pre>{"p":"sparkle","v":1}</pre>
+        <p><strong>Result:</strong> VALID: VALID (minimal required fields)</p>
+
+        <h3>Example 2: NFT with Recursive Layers</h3>
+        <pre>{"layers":[{"id":"6fb976ab49dcec017f1e201e84395983204ae1a7c2abf7ced0a85d692e442799i0","z":0}],"meta":{"name":"NFT #1"},"p":"sparkle","v":1}</pre>
+        <p><strong>Result:</strong> VALID: VALID (canonicalized: alphabetical keys, compact)</p>
+
+        <h3>Example 3: Lightning-Enabled NFT</h3>
+        <pre>{"lightning":{"enabled":true,"htlc_timeout":144,"network":"testnet"},"p":"sparkle","v":1}</pre>
+        <p><strong>Result:</strong> VALID: VALID</p>
+
+        <h2>Invalid Inscriptions</h2>
+
+        <h3>Example 4: Missing Protocol Field</h3>
+        <pre>{"v":1,"meta":{"name":"Invalid"}}</pre>
+        <p><strong>Result:</strong> ❌ INVALID (missing required "p" field)</p>
+
+        <h3>Example 5: Wrong Version</h3>
+        <pre>{"p":"sparkle","v":2}</pre>
+        <p><strong>Result:</strong> ❌ INVALID (version 2 undefined; only v1 exists)</p>
+
+        <h3>Example 6: Non-Canonicalized JSON</h3>
+        <pre>{
+  "v": 1,
+  "p": "sparkle"
+}</pre>
+        <p><strong>Result:</strong> WARNING: NON-CANONICAL (whitespace present; keys not alphabetized)</p>
+        <p><strong>Canonical form:</strong> <code>{"p":"sparkle","v":1}</code></p>
+
+        <h3>Example 7: Invalid Additional Properties</h3>
+        <pre>{"p":"sparkle","v":1,"custom":"not_allowed"}</pre>
+        <p><strong>Result:</strong> ❌ INVALID (schema forbids additionalProperties)</p>
+
+        <h2>Edge Cases</h2>
+
+        <h3>Example 8: Empty Layers Array</h3>
+        <pre>{"layers":[],"p":"sparkle","v":1}</pre>
+        <p><strong>Result:</strong> VALID: VALID (empty array allowed)</p>
+
+        <h3>Example 9: Max HTLC Timeout</h3>
+        <pre>{"lightning":{"enabled":true,"htlc_timeout":1008},"p":"sparkle","v":1}</pre>
+        <p><strong>Result:</strong> VALID: VALID (1008 blocks = ~1 week max)</p>
+
+        <h3>Example 10: Exceeds Max HTLC</h3>
+        <pre>{"lightning":{"enabled":true,"htlc_timeout":2000},"p":"sparkle","v":1}</pre>
+        <p><strong>Result:</strong> ❌ INVALID (exceeds maximum 1008 blocks)</p>
+
+        <h2>Indexer Compliance Requirements</h2>
+        <p>SIP-1 compliant indexers MUST:</p>
+        <ol>
+            <li>Validate against JSON Schema before accepting</li>
+            <li>Reject unknown version numbers</li>
+            <li>Canonicalize JSON (alphabetical keys, no whitespace)</li>
+            <li>Limit inscription size (recommended: 100KB max)</li>
+            <li>Rate-limit recursive layer fetches</li>
+            <li>Produce deterministic results</li>
+        </ol>
+
+        <footer style="margin-top: 4rem; padding: 2rem 0; border-top: 2px solid #000;">
+            <p>© 2025 Sparkle Protocol • Created by David Michael</p>
+        </footer>
+    </div>
+</body>
+</html>

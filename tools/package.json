@@ -1,0 +1,19 @@
+{
+  "name": "@sparkle-protocol/validator",
+  "version": "0.1.0",
+  "description": "Sparkle Protocol SIP-1 inscription validator and tools",
+  "main": "validate-sip1.js",
+  "bin": {
+    "sparkle-validate": "./validate-sip1.js"
+  },
+  "scripts": {
+    "test": "node test-vectors.js",
+    "validate": "node validate-sip1.js"
+  },
+  "keywords": ["bitcoin", "ordinals", "lightning", "sparkle", "sip-1"],
+  "author": "David Michael",
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.12.0"
+  }
+}

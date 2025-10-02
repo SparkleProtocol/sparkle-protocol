@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIP-2: Upgrade Semantics - Sparkle Protocol</title>
+    <link rel="stylesheet" href="../css/academic-ultra-clean.css">
+    <link rel="stylesheet" href="../css/navigation-clean.css">
+</head>
+<body>
+    <a href="../index.html" class="back-button">← Back to Home</a>
+
+    <div class="container">
+        <h1>SIP-2: Upgrade and Reinscription Semantics</h1>
+
+        <div class="warning-box">
+            <strong>STATUS: DRAFT</strong><br>
+            Type: Standard<br>
+            Created: 2025-10-02<br>
+            Author: David Michael
+        </div>
+
+        <h2>Abstract</h2>
+        <p>
+            This specification defines how Sparkle Protocol handles upgrades, reinscriptions, and
+            conflicting metadata. It establishes deterministic rules for ownership verification,
+            parent/child ordering, and replay protection.
+        </p>
+
+        <h2>Motivation</h2>
+        <p>
+            NFT owners need the ability to upgrade Lightning configuration or metadata without
+            re-inscribing the entire NFT. Without clear upgrade rules, indexers will disagree on
+            which metadata is authoritative.
+        </p>
+
+        <h2>Specification</h2>
+
+        <h3>Upgrade Operation</h3>
+        <p>An upgrade inscription MUST:</p>
+        <ol>
+            <li>Reference the parent inscription ID in a "parent" field</li>
+            <li>Be inscribed to the same address that owned the parent at upgrade block height</li>
+            <li>Include "op": "config" to signal an upgrade</li>
+        </ol>
+
+        <h3>Example Upgrade Inscription</h3>
+        <pre>{
+  "p": "sparkle",
+  "v": 1,
+  "op": "config",
+  "parent": "abc123...i0",
+  "lightning": {
+    "enabled": false
+  }
+}</pre>
+
+        <h3>Conflict Resolution Rules</h3>
+        <p>When multiple upgrades exist for the same parent:</p>
+        <ol>
+            <li><strong>Higher block height wins:</strong> Later upgrades override earlier ones</li>
+            <li><strong>Owner-at-height check:</strong> Only valid if inscriber owned parent at that block</li>
+            <li><strong>Tie-breaker:</strong> If same block, lower transaction index wins</li>
+        </ol>
+
+        <h3>Ownership Verification Algorithm</h3>
+        <pre>function isValidUpgrade(upgrade, parent, blockHeight) {
+  // 1. Check parent reference
+  if (upgrade.parent !== parent.inscriptionId) {
+    return false;
+  }
+
+  // 2. Get parent owner at upgrade block
+  const parentOwner = getOwnerAtBlock(parent, blockHeight);
+
+  // 3. Check upgrade inscriber matches parent owner
+  const upgradeInscriber = getInscriptionAddress(upgrade);
+
+  return upgradeInscriber === parentOwner;
+}</pre>
+
+        <h3>Replay Protection</h3>
+        <p>To prevent cross-network replay attacks:</p>
+        <ul>
+            <li>Upgrades MUST include "network" field matching parent network</li>
+            <li>Indexers MUST reject upgrades with mismatched networks</li>
+            <li>Genesis inscriptions SHOULD specify network explicitly</li>
+        </ul>
+
+        <h3>State Merging</h3>
+        <p>When applying an upgrade:</p>
+        <ul>
+            <li>Specified fields override parent values</li>
+            <li>Unspecified fields inherit from parent</li>
+            <li>Arrays are replaced entirely (no merging)</li>
+            <li>Objects are shallow-merged (top-level keys only)</li>
+        </ul>
+
+        <h3>Example State Evolution</h3>
+        <pre>// Genesis inscription (block 100)
+{
+  "p": "sparkle",
+  "v": 1,
+  "op": "deploy",
+  "layers": [{"id": "layer1...i0", "z": 0}],
+  "lightning": {"enabled": true, "network": "mainnet"},
+  "meta": {"name": "NFT #1"}
+}
+
+// Upgrade inscription (block 200)
+{
+  "p": "sparkle",
+  "v": 1,
+  "op": "config",
+  "parent": "genesis...i0",
+  "lightning": {"enabled": false}
+}
+
+// Effective state after block 200
+{
+  "p": "sparkle",
+  "v": 1,
+  "layers": [{"id": "layer1...i0", "z": 0}],  // inherited
+  "lightning": {"enabled": false, "network": "mainnet"},  // merged
+  "meta": {"name": "NFT #1"}  // inherited
+}</pre>
+
+        <h2>Indexer Requirements</h2>
+        <ol>
+            <li>MUST track ownership history for each inscription</li>
+            <li>MUST validate owner-at-height for all upgrades</li>
+            <li>MUST apply upgrades in chronological order</li>
+            <li>MUST reject upgrades from non-owners</li>
+        </ol>
+
+        <h2>Security Considerations</h2>
+        <ul>
+            <li><strong>Reorg Handling:</strong> Indexers MUST recompute state after reorgs deeper than 6 blocks</li>
+            <li><strong>DoS Prevention:</strong> Limit to 100 upgrades per parent inscription</li>
+            <li><strong>Spam Protection:</strong> Indexers MAY require minimum fee rate for upgrade inscriptions</li>
+        </ul>
+
+        <h2>Backwards Compatibility</h2>
+        <p>
+            This upgrade mechanism is forwards-compatible. Indexers that don't implement SIP-2 will
+            treat upgrades as independent inscriptions, which degrades gracefully.
+        </p>
+
+        <footer style="margin-top: 4rem; padding: 2rem 0; border-top: 2px solid #000;">
+            <p><strong>SIP-2</strong> • Sparkle Upgrade Semantics</p>
+            <p>© 2025 Sparkle Protocol • Created by David Michael • Draft Specification</p>
+        </footer>
+    </div>
+</body>
+</html>

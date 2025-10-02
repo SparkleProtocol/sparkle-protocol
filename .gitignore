@@ -1,0 +1,69 @@
+# Sparkle Protocol - Security & Privacy
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+wallet_*.txt
+wallet_*.json
+*seed*.txt
+*private*.txt
+
+# Development files
+*.log
+*.tmp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# IDE & editors
+.vscode/
+.idea/
+*.sublime-*
+
+# Indexer database
+indexer/*.db.json
+*.db
+*.redb
+
+# Test & build artifacts
+coverage/
+.nyc_output/
+dist/
+build/
+
+# Private assessment documents
+*ASSESSMENT*.md
+*TRUTH*.md
+*BRUTAL*.md
+*REALITY*.md
+*INSCRIBE*.md
+*COST*.md
+*MOBILE*.md
+*DEPLOY*.md
+*QUALITY*.md
+*COMPLIANCE*.md
+*BUILD*.md
+*HOW_TO*.md
+*COMPLETE*.md
+*FINAL*.md
+
+# Private implementation files
+COMPLETE_*.js
+*_IMPLEMENTATION.js
+
+# Test inscriptions
+darkita-*.json
+test-*.json
+genesis-*.json

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIP-3: Lightning Atomic Trades - Sparkle Protocol</title>
+    <link rel="stylesheet" href="../css/academic-ultra-clean.css">
+    <link rel="stylesheet" href="../css/navigation-clean.css">
+</head>
+<body>
+    <a href="../index.html" class="back-button">← Back to Home</a>
+
+    <div class="container">
+        <h1>SIP-3: Lightning-Atomic NFT Trades</h1>
+
+        <div class="warning-box">
+            <strong>STATUS: DRAFT - NOT IMPLEMENTED</strong><br>
+            Type: Standard<br>
+            Created: 2025-10-02<br>
+            Author: David Michael<br><br>
+            <strong>REQUIRES:</strong> Coordinator service (not built), Spark SDK integration, wallet support
+        </div>
+
+        <h2>Abstract</h2>
+        <p>
+            This specification defines the protocol for atomic NFT trades where Lightning payment
+            settlement is cryptographically bound to PSBT finalization. It establishes the handshake
+            flow, timeout rules, and failure handling to ensure buyer and seller atomicity.
+        </p>
+
+        <h2>Motivation</h2>
+        <p>
+            Standard Bitcoin transactions take ~10 minutes to confirm. Lightning enables sub-second
+            payment, but linking it atomically to NFT ownership transfer requires careful protocol design
+            to prevent:
+        </p>
+        <ul>
+            <li>Buyer pays but seller doesn't transfer NFT</li>
+            <li>Seller transfers NFT but buyer doesn't pay</li>
+            <li>Coordinator theft or censorship</li>
+        </ul>
+
+        <h2>Specification</h2>
+
+        <h3>Trade Flow</h3>
+        <pre>1. Seller → Coordinator: List NFT
+   - Provide inscription ID, price (sats), PSBT transferring NFT
+
+2. Buyer → Coordinator: Accept offer
+   - Request Lightning invoice
+
+3. Coordinator → Buyer: HTLC invoice
+   - Payment hash H = hash(preimage)
+   - Timeout: 60 blocks (~10 hours)
+
+4. Buyer → Lightning: Pay invoice
+   - Payment routed via Lightning Network
+
+5. Seller receives preimage P
+   - Seller verifies hash(P) = H
+   - Seller broadcasts signed PSBT
+
+6. Coordinator monitors blockchain
+   - After 1 confirmation: Release preimage to buyer
+   - Trade complete</pre>
+
+        <h3>HTLC Timeout Rules</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Timeout</th>
+                    <th>Value</th>
+                    <th>Rationale</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Lightning invoice</td>
+                    <td>60 blocks</td>
+                    <td>Enough time for PSBT broadcast + confirmations</td>
+                </tr>
+                <tr>
+                    <td>PSBT broadcast</td>
+                    <td>Within 30 blocks</td>
+                    <td>After buyer pays, seller must broadcast quickly</td>
+                </tr>
+                <tr>
+                    <td>Confirmation wait</td>
+                    <td>6 blocks</td>
+                    <td>Standard finality threshold</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Atomicity Guarantee</h3>
+        <p>The protocol ensures atomicity through HTLC construction:</p>
+        <pre>IF buyer pays Lightning invoice
+    Seller learns preimage P
+    Seller must broadcast PSBT to claim payment
+    Coordinator cannot steal (doesn't know seller's keys)
+ELSE
+    Invoice expires, no payment captured
+    Both parties refunded automatically</pre>
+
+        <h3>Failure Modes</h3>
+
+        <h4>1. Buyer Pays But PSBT Fails</h4>
+        <p><strong>Scenario:</strong> Buyer pays Lightning invoice, but seller's PSBT is invalid or double-spent.</p>
+        <p><strong>Resolution:</strong></p>
+        <ul>
+            <li>Coordinator monitors PSBT broadcast for 30 blocks</li>
+            <li>If PSBT not confirmed by block 30: Coordinator refunds buyer via on-chain fallback</li>
+            <li>Fallback PSBT: Coordinator pre-signs refund transaction using same HTLC preimage</li>
+        </ul>
+
+        <h4>2. Seller Broadcasts PSBT But Mempool Pinning</h4>
+        <p><strong>Scenario:</strong> Attacker broadcasts low-fee conflicting tx to block PSBT.</p>
+        <p><strong>Mitigation:</strong></p>
+        <ul>
+            <li>PSBT must use RBF (BIP 125) to allow fee bumping</li>
+            <li>Coordinator monitors mempool and alerts seller to fee-bump</li>
+            <li>CPFP allowed: Buyer can child-pays-for-parent if needed</li>
+        </ul>
+
+        <h4>3. Blockchain Reorg After Payment</h4>
+        <p><strong>Scenario:</strong> PSBT confirmed, then chain reorgs and tx disappears.</p>
+        <p><strong>Resolution:</strong></p>
+        <ul>
+            <li>Coordinator waits 6 confirmations before releasing preimage</li>
+            <li>If reorg deeper than 6 blocks: Manual dispute resolution</li>
+            <li>Lightning payment already settled (cannot reorg Lightning state)</li>
+        </ul>
+
+        <h3>Coordinator API (Proposed)</h3>
+        <pre>POST /v1/trade/create
+{
+  "inscription_id": "abc123...i0",
+  "price_sats": 100000,
+  "seller_address": "bc1p...",
+  "psbt": "cHNidP8BAH..."
+}
+
+Response:
+{
+  "trade_id": "uuid",
+  "status": "pending"
+}
+
+---
+
+GET /v1/trade/{trade_id}/invoice
+
+Response:
+{
+  "payment_request": "lnbc1...",
+  "payment_hash": "abc123...",
+  "expires_at": 1234567890
+}
+
+---
+
+POST /v1/trade/{trade_id}/finalize
+{
+  "payment_preimage": "def456..."
+}
+
+Response:
+{
+  "txid": "xyz789...",
+  "confirmations": 0
+}</pre>
+
+        <h2>Implementation Requirements</h2>
+
+        <h3>Coordinator Service Must:</h3>
+        <ol>
+            <li>Validate PSBT transfers correct inscription to buyer</li>
+            <li>Generate HTLC invoices via Spark SDK or LND</li>
+            <li>Monitor Lightning payments and blockchain confirmations</li>
+            <li>Enforce timeout rules and trigger refunds</li>
+            <li>Provide WebSocket updates for trade status</li>
+        </ol>
+
+        <h3>Wallet Support Requires:</h3>
+        <ol>
+            <li>PSBT creation for inscription transfers</li>
+            <li>Lightning invoice payment via Spark SDK</li>
+            <li>API integration with coordinator</li>
+            <li>User confirmation flow (payment + PSBT signing)</li>
+        </ol>
+
+        <h2>Security Considerations</h2>
+
+        <h3>Coordinator Trust Assumptions</h3>
+        <p>The coordinator can:</p>
+        <ul>
+            <li>❌ <strong>Cannot</strong> steal funds (doesn't control keys)</li>
+            <li>❌ <strong>Cannot</strong> forge payments (Lightning cryptography prevents this)</li>
+            <li>VALID: <strong>Can</strong> censor trades (DoS risk)</li>
+            <li>VALID: <strong>Can</strong> see trade metadata (privacy risk)</li>
+        </ul>
+
+        <h3>Mitigations</h3>
+        <ul>
+            <li><strong>Censorship:</strong> Run your own coordinator (open source)</li>
+            <li><strong>Privacy:</strong> Use Tor or VPN when connecting to coordinator</li>
+            <li><strong>Coordinator downtime:</strong> Buyers can still claim refund via on-chain fallback</li>
+        </ul>
+
+        <h2>Current Status</h2>
+        <p>
+            <strong>NOT IMPLEMENTED.</strong> This specification describes the intended design.
+            To use this protocol, someone must build:
+        </p>
+        <ol>
+            <li>Coordinator service (~200 hours development)</li>
+            <li>Wallet integration (Sparrow plugin, UniSat PR, etc.)</li>
+            <li>Spark SDK integration for HTLC generation</li>
+            <li>Testnet deployment and testing</li>
+        </ol>
+
+        <footer style="margin-top: 4rem; padding: 2rem 0; border-top: 2px solid #000;">
+            <p><strong>SIP-3</strong> • Lightning-Atomic Trades</p>
+            <p>© 2025 Sparkle Protocol • Created by David Michael • Draft Specification</p>
+            <p><strong>Implementation Status:</strong> Proposal only - Not built</p>
+        </footer>
+    </div>
+</body>
+</html>
